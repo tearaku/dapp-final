@@ -1,4 +1,6 @@
 import { Connection, programs } from '@metaplex/js';
+import { useConnection } from '@solana/wallet-adapter-react';
+import { notify } from './notifications';
 
 export async function getMetadata(pubKey) {
   const { metadata: { Metadata } } = programs;
@@ -10,10 +12,8 @@ export async function getMetadata(pubKey) {
   try {
     const nftMetadata = await Metadata.findDataByOwner(connection, pubKey);
     console.log(nftMetadata);
-    const nftURIList = nftMetadata.map((item) => { return item.data.uri });
-    return nftURIList;
+    return nftMetadata;
   } catch {
-    // TODO: notify to user via notify() ?
-    console.log('Failed to load NFTs from wallet.');
+    notify({ type: 'error', message: 'Failed to load NFTs from wallet.', description: 'Failed to load NFTs from wallet.' });
   }
 }
