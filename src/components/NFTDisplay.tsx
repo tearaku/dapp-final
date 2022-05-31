@@ -31,8 +31,9 @@ export default function NFTDisplay({ metadata, dataStoreIdx }: Prop) {
   }, [metadata, tokenAccount])
 
   const { data, error } = useSWR(metadata.data.uri, fetcher)
+  const auctionListing = useSWR(`/api/listing/${metadata.mint}`, fetcher)
 
-  if (!data) return <div>Loading NFT...</div>
+  if (!data || !auctionListing.data) return <div>Loading NFT...</div>
   if (error) return <div>Error in loading NFT!</div>
 
   return (
@@ -40,7 +41,10 @@ export default function NFTDisplay({ metadata, dataStoreIdx }: Prop) {
       <img src={data.image} height="20%" />
       <h1>{data.name}</h1>
       <button className='btn'>
-        <Link href={`/auction/create/${dataStoreIdx}`}><a>Sell</a></Link>
+        {!auctionListing.data.data &&
+          <Link href={`/auction/create/${dataStoreIdx}`}><a>Sell</a></Link>}
+        {auctionListing.data.data &&
+          <p>Already On Listing</p>}
       </button>
     </div>
   )

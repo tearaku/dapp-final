@@ -130,11 +130,22 @@ const AuctionCreate: NextPage = (props) => {
       from the auction house ${process.env.NEXT_PUBLIC_AUCTION_HOUSE_ID}`)
     console.log(`Transaction signature: ${txid}`)
     notify({ type: 'success', message: `Transaction successful!`, txid: txid })
-    // const nftTokenAccount = await connection.getTokenAccountsByOwner(
-    //   wallet.publicKey,
-    //   { mint: new PublicKey(metadata.mint) }
-    // ).then(data => { return data.value[0] })
-    // console.log("NFT token account:\n", nftTokenAccount)
+    const res = await fetch("/api/listing", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        mintPubkey: metadata.mint,
+        sellerPubKey: wallet.publicKey,
+        sellPrice: data.price
+      })
+    })
+    if (res.ok) {
+      console.log("DB listing updated!")
+    } else {
+      console.log("DB listing failed!")
+    }
   }
 
   if (!metadata) return (<p>Loading data...</p>)
@@ -228,3 +239,9 @@ export default AuctionCreate;
     console.log(manager)
     console.log(manager.data)
 */
+
+// const nftTokenAccount = await connection.getTokenAccountsByOwner(
+//   wallet.publicKey,
+//   { mint: new PublicKey(metadata.mint) }
+// ).then(data => { return data.value[0] })
+// console.log("NFT token account:\n", nftTokenAccount)

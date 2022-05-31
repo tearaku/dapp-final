@@ -18,7 +18,6 @@ export const BasicsView: FC = ({ }) => {
           <SignMessage />
           <SendTransaction />
           <StoreSetup />
-          <AuctionView />
         </div>
       </div>
     </div>

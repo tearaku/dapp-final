@@ -6,32 +6,32 @@ import { useConnection, useWallet } from '@solana/wallet-adapter-react'
 import { actions, Connection, Wallet, programs } from '@metaplex/js'
 import Link from 'next/link'
 import { AuctionHouseProgram } from "@metaplex-foundation/mpl-auction-house"
+import NFTAuctionCard from './NFTAuctionCard'
 
 const fetcher = (url) => fetch(url).then(res => res.json())
-
-const fetchAuctions = async (connection) => {
-  const storePDA = await programs.metaplex.Store.getPDA(new PublicKey(process.env.NEXT_PUBLIC_STORE_ADDRESS))
-  const auctionManagers = await programs.metaplex.AuctionManager.findMany(connection, {
-    store: storePDA,
-  });
-  const auctions = await Promise.all(
-    auctionManagers.map((m) => m.getAuction(connection))
-  );
-  console.log("Auctions: ", auctions)
-}
 
 export default function AuctionView() {
   const { connection } = useConnection()
   const { publicKey } = useWallet()
 
+  const { data, error } = useSWR(`/api/listing`, fetcher)
+
   useEffect(() => {
     console.log("Auction house program ID?: ", AuctionHouseProgram.PUBKEY.toString())
-    fetchAuctions(connection)
   }, [])
 
-  return (
-    <div className='card'>
+  useEffect(() => {
+    console.log(data)
+  }, data)
 
+  if (error) return (<h1>Error in fetching all listings! Please try to wait a bit while SWR refetches data...</h1>)
+  if (!data) return (<h1>Loading all listings...</h1>)
+
+  return (
+    <div className='grid grid-cols-4'>
+      {data.data.map((value, index) => {
+        return <NFTAuctionCard mintPubkey={value.mintPubkey} />
+      })}
     </div>
   )
 }
