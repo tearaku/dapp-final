@@ -12,6 +12,7 @@ import useSWR from "swr";
 import { getAuctionHouseTradeState, getMetadata, getPriceWithMantissa } from "utils/auction-house";
 import { notify } from "utils/notifications";
 import { getTransactionWithRetryWithKeypair, sendSignedTransaction } from "utils/transaction";
+import { useEffect, useState } from "react";
 
 const fetcher = (url) => fetch(url).then(res => res.json())
 
@@ -22,12 +23,19 @@ type FormData = {
 const AuctionCreate: NextPage = (props) => {
   const { connection } = useConnection()
   const { publicKey, signTransaction } = useWallet()
+  const [nftURI, setNFTURI] = useState("")
 
   const route = useRouter()
   const dataStoreIdx = parseInt(route.query.dataStoreId as string)
   const metadata = useNFTMetadataStore((s) => s.metadata[dataStoreIdx])
 
-  const { data, error } = useSWR(metadata.data.uri, fetcher)
+  useEffect(() => {
+    if (metadata.data) {
+      setNFTURI(metadata.data.uri)
+    }
+  }, [metadata])
+
+  const { data, error } = useSWR(nftURI, fetcher)
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>()
   const onSubmit: SubmitHandler<FormData> = async (data) => {
