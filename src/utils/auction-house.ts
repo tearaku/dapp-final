@@ -107,3 +107,13 @@ export const getMetadata = async (
     )
   )[0];
 };
+
+export const getAuctionHouseBuyerEscrow = async (
+  auctionHouse: PublicKey,
+  wallet: PublicKey,
+): Promise<[PublicKey, number]> => {
+  return await PublicKey.findProgramAddress(
+    [Buffer.from(AuctionHouseProgram.PREFIX), auctionHouse.toBuffer(), wallet.toBuffer()],
+    AuctionHouseProgram.PUBKEY,
+  );
+};

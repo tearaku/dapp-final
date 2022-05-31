@@ -7,12 +7,21 @@ import { actions, Connection, Wallet, programs } from '@metaplex/js'
 import Link from 'next/link'
 import { AuctionHouseProgram } from "@metaplex-foundation/mpl-auction-house"
 import NFTAuctionCard from './NFTAuctionCard'
+import useUserSOLBalanceStore from 'stores/useUserSOLBalanceStore'
 
 const fetcher = (url) => fetch(url).then(res => res.json())
 
 export default function AuctionView() {
   const { connection } = useConnection()
   const { publicKey } = useWallet()
+  const { getUserSOLBalance } = useUserSOLBalanceStore()
+
+  useEffect(() => {
+    if (publicKey) {
+      console.log(publicKey.toBase58())
+      getUserSOLBalance(publicKey, connection)
+    }
+  }, [publicKey, connection, getUserSOLBalance])
 
   const { data, error } = useSWR(`/api/listing`, fetcher)
 
@@ -30,7 +39,7 @@ export default function AuctionView() {
   return (
     <div className='grid grid-cols-4'>
       {data.data.map((value, index) => {
-        return <NFTAuctionCard mintPubkey={value.mintPubkey} />
+        return <NFTAuctionCard mintPubkey={value.mintPubkey} sellerPubkey={value.sellerPubkey} sellPrice={parseFloat(value.sellPrice)} />
       })}
     </div>
   )

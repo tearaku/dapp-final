@@ -60,6 +60,7 @@ export default function StoreSetup() {
         new web3.PublicKey(process.env.NEXT_PUBLIC_AUCTION_HOUSE_ID)
       ).then(auctionHouse => {
         setStoreObj(auctionHouse)
+        console.log("Auction house treasury, natie mint?: ", auctionHouse.treasuryMint.equals(NATIVE_MINT) ? 1 : 0)
         connection.getBalance(auctionHouse.auctionHouseFeeAccount).then(bal => {
           setStoreFeeBal(bal / web3.LAMPORTS_PER_SOL)
         })

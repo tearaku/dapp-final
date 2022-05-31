@@ -21,7 +21,7 @@ type FormData = {
 
 const AuctionCreate: NextPage = (props) => {
   const { connection } = useConnection()
-  const wallet = useWallet()
+  const { publicKey, signTransaction } = useWallet()
 
   const route = useRouter()
   const dataStoreIdx = parseInt(route.query.dataStoreId as string)
@@ -46,7 +46,7 @@ const AuctionCreate: NextPage = (props) => {
         data.price,
         //@ts-ignore
         auctionHouseObj.treasuryMint,
-        wallet.publicKey,
+        publicKey,
         connection,
       ),
     );
@@ -57,14 +57,14 @@ const AuctionCreate: NextPage = (props) => {
       await getPriceWithMantissa(
         1,
         mintKey,
-        wallet.publicKey,
+        publicKey,
         connection,
       ),
     );
     console.log("Token size adjusted: ", tokenSizeAdjusted)
     console.log("Token size adjusted: ", tokenSizeAdjusted.toNumber())
     const tokenAccountKey = (
-      await AuctionHouseProgram.findAssociatedTokenAccountAddress(mintKey, wallet.publicKey)
+      await AuctionHouseProgram.findAssociatedTokenAccountAddress(mintKey, publicKey)
     )[0]
 
     const [programAsSigner, programAsSignerBump] =
@@ -72,7 +72,7 @@ const AuctionCreate: NextPage = (props) => {
 
     const [tradeState, tradeBump] = await getAuctionHouseTradeState(
       auctionHouseKey,
-      wallet.publicKey,
+      publicKey,
       tokenAccountKey,
       //@ts-ignore
       auctionHouseObj.treasuryMint,
@@ -83,7 +83,7 @@ const AuctionCreate: NextPage = (props) => {
 
     const [freeTradeState, freeTradeBump] = await getAuctionHouseTradeState(
       auctionHouseKey,
-      wallet.publicKey,
+      publicKey,
       tokenAccountKey,
       //@ts-ignore
       auctionHouseObj.treasuryMint,
@@ -93,7 +93,7 @@ const AuctionCreate: NextPage = (props) => {
     );
 
     const inTx = await AuctionHouseProgram.instructions.createSellInstruction({
-      wallet: wallet.publicKey,
+      wallet: publicKey,
       tokenAccount: tokenAccountKey,
       metadata: await getMetadata(mintKey),
       //@ts-ignore
@@ -113,23 +113,16 @@ const AuctionCreate: NextPage = (props) => {
     })
     // Our auction house doesn't sign, so the seller has to sign the tx
     inTx.keys
-      .filter(k => k.pubkey.equals(wallet.publicKey))
+      .filter(k => k.pubkey.equals(publicKey))
       .map(k => (k.isSigner = true))
 
-    const transaction = await getTransactionWithRetryWithKeypair(connection, wallet.publicKey, [inTx], 'max')
-    const signedTx = await wallet.signTransaction(transaction)
+    const transaction = await getTransactionWithRetryWithKeypair(connection, publicKey, [inTx], 'max')
+    const signedTx = await signTransaction(transaction)
     const { txid, slot } = await sendSignedTransaction({
       connection,
       signedTransaction: signedTx,
       timeout: 300000
     });
-    // const { signature, confirm } = await sendTransactionWithRetryWithKeypair(connection, [inTx], 'max')
-    // const signature = await wallet.sendTransaction(transaction, connection)
-    // const confirm = await connection.confirmTransaction(signature, 'confirmed')
-    console.log(`1x of ${metadata.mint} is up for sale for ${data.price},
-      from the auction house ${process.env.NEXT_PUBLIC_AUCTION_HOUSE_ID}`)
-    console.log(`Transaction signature: ${txid}`)
-    notify({ type: 'success', message: `Transaction successful!`, txid: txid })
     const res = await fetch("/api/listing", {
       method: "POST",
       headers: {
@@ -137,10 +130,17 @@ const AuctionCreate: NextPage = (props) => {
       },
       body: JSON.stringify({
         mintPubkey: metadata.mint,
-        sellerPubKey: wallet.publicKey,
+        sellerPubkey: publicKey.toString(),
         sellPrice: data.price
       })
     })
+    // const { signature, confirm } = await sendTransactionWithRetryWithKeypair(connection, [inTx], 'max')
+    // const signature = await wallet.sendTransaction(transaction, connection)
+    // const confirm = await connection.confirmTransaction(signature, 'confirmed')
+    console.log(`1x of ${metadata.mint} is up for sale for ${data.price},
+      from the auction house ${process.env.NEXT_PUBLIC_AUCTION_HOUSE_ID}`)
+    console.log(`Transaction signature: ${txid}`)
+    notify({ type: 'success', message: `Transaction successful!`, txid: txid })
     if (res.ok) {
       console.log("DB listing updated!")
     } else {
