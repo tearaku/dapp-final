@@ -239,21 +239,6 @@ export default function NFTAuctionCard({ mintPubkey, sellerPubkey, sellPrice }: 
       buyerPrice: buyPriceAdjusted,
       tokenSize: tokenSizeAdjusted,
     })
-    // TODO: there are other params passed into this thing...
-    // const instruction = await anchorProgram.instruction.executeSale(
-    //   bump,
-    //   freeTradeStateBump,
-    //   programAsSignerBump,
-    //   buyPriceAdjusted,
-    //   tokenSizeAdjusted,
-    //   {
-    //     accounts: {},
-    //     remainingAccounts,
-    //     signers,
-    //   },
-    // );
-    // end of TODO
-
     txIn.keys
       .filter(k => k.pubkey.equals(publicKey))
       .map(k => (k.isSigner = true));
@@ -291,6 +276,96 @@ export default function NFTAuctionCard({ mintPubkey, sellerPubkey, sellPrice }: 
     }
   }
 
+  const cancelListing = async () => {
+    const auctionHouseKey = new PublicKey(process.env.NEXT_PUBLIC_AUCTION_HOUSE_ID);
+    const mintKey = new PublicKey(mintPubkey);
+    const auctionHouseObj = await AuctionHouseProgram.accounts.AuctionHouse.fromAccountAddress(
+      connection,
+      new PublicKey(auctionHouseKey)
+    );
+    const buyPriceAdjusted = new BN(
+      await getPriceWithMantissa(
+        sellPrice,
+        //@ts-ignore
+        auctionHouseObj.treasuryMint,
+        publicKey,
+        connection,
+      ),
+    );
+    const tokenSizeAdjusted = new BN(
+      await getPriceWithMantissa(
+        1,
+        mintKey,
+        publicKey,
+        connection,
+      ),
+    );
+
+    const results = await connection
+      .getTokenLargestAccounts(mintKey)
+      .catch(e => {
+        console.error(e);
+        return { value: [] };
+      });
+    if (results.value.length == 0) {
+      throw Error(
+        "The Mint(NFT, Tokens) largest token account can't be found, this could be network instability or you have the wrong mint address.",
+      );
+    }
+    const tokenAccountKey: PublicKey = results.value[0].address;
+
+    const tradeState = (
+      await getAuctionHouseTradeState(
+        auctionHouseKey,
+        publicKey,
+        tokenAccountKey,
+        //@ts-ignore
+        auctionHouseObj.treasuryMint,
+        mintKey,
+        tokenSizeAdjusted,
+        buyPriceAdjusted,
+      )
+    )[0];
+
+    const signers = [];
+    const txIn = AuctionHouseProgram.instructions.createCancelInstruction({
+      wallet: publicKey,
+      tokenAccount: tokenAccountKey,
+      tokenMint: mintKey,
+      //@ts-ignore
+      authority: auctionHouseObj.authority,
+      auctionHouse: auctionHouseKey,
+      //@ts-ignore
+      auctionHouseFeeAccount: auctionHouseObj.auctionHouseFeeAccount,
+      tradeState: tradeState,
+    }, {
+      buyerPrice: buyPriceAdjusted,
+      tokenSize: tokenSizeAdjusted,
+    })
+    txIn.keys
+      .filter(k => k.pubkey.equals(publicKey))
+      .map(k => (k.isSigner = true));
+    const res = await fetch(`/api/listing/${mintPubkey}`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    })
+    if (res.ok) {
+      console.log("All good on db!")
+    }
+    const transaction = await getTransactionWithRetryWithKeypair(connection, publicKey, [txIn], 'max');
+    const signedTx = await signTransaction(transaction)
+    const { txid, slot } = await sendSignedTransaction({
+      connection,
+      signedTransaction: signedTx,
+      timeout: 300000
+    })
+
+    notify({ type: 'success', message: `Cancel sell listing tx successful!`, txid: txid })
+    console.log(`Cancelled sell listing of 1x ${mintPubkey} for ${sellPrice}.`)
+  }
+
   useEffect(() => {
     if (mintPubkey) {
       Metadata.findByMint(connection, new PublicKey(mintPubkey)).then(data => {
@@ -315,7 +390,7 @@ export default function NFTAuctionCard({ mintPubkey, sellerPubkey, sellPrice }: 
       <h1>{data.name}</h1>
       <h3>Price: {sellPrice} SOL</h3>
       {(sellerPubkey == publicKey.toString()) &&
-        <button className='btn'>Your own!</button>}
+        <button className='btn' onClick={cancelListing}>Cancel Listing</button>}
       {(sellerPubkey != publicKey.toString()) &&
         <button className='btn' onClick={purchase}>
           {(balance > sellPrice) &&
